@@ -9,7 +9,6 @@ import fs from "fs";
 const envFile =
   process.env.NODE_ENV === "production" ? ".env.production" : ".env.development";
 
-// Load environment variables before connecting DB
 if (fs.existsSync(envFile)) {
   dotenv.config({ path: envFile });
   console.log(`✅ Loaded environment: ${process.env.NODE_ENV}`);
@@ -18,50 +17,54 @@ if (fs.existsSync(envFile)) {
   dotenv.config();
 }
 
-// Connect to MongoDB
 connectDB();
 
 const app = express();
 
-// Middleware
 app.use(express.json());
 
-// CORS setup
-const allowedOrigins = ["http://localhost:3000", "https://yourfrontend.com"];
+// ✅ CORS setup — fully correct version
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://food-delivery-frontend.vercel.app", // your actual frontend URL
+];
+
 app.use(
   cors({
-    origin: (origin, callback) => {
+    origin: function (origin, callback) {
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));
       }
     },
-    credentials: true,
+    credentials: true, // ✅ Must be true for cookies/sessions
   })
 );
+
+// ✅ Also explicitly set headers (important for Vercel/Render/Netlify)
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
+  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  next();
+});
 
 // Routes
 app.use("/api/menu", menuRoutes);
 app.use("/api/categories", categoriesRoutes);
 
-// Root route
 app.get("/", (req, res) => {
   res.send("🚀 Food Delivery Backend is running...");
 });
 
-// 404 handler
 app.all("*", (req, res) => {
   res.status(404).json({ message: "Route not found" });
 });
 
-// Start server
 const PORT = process.env.PORT || 8080;
-const MONGO_URI = process.env.MONGO_URI;
-
-console.log("🌍 Environment:", process.env.NODE_ENV);
-console.log("🔗 Mongo URI:", MONGO_URI);
-
-app.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`✅ Server running on http://localhost:${PORT}`));
